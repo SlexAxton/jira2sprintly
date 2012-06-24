@@ -7,6 +7,8 @@ This is not a ready-to-go script, but it should get you 95% there.
 * fill out the info in the top of the script
 * run, fix errors, repeat
 
+`node jira2sprintly.js`
+
 I used this script to successfully transfer over 700 JIRA tickets (created via the greenhopper agile tool) to sprint.ly.
 
 It is a tiny bit rough, but works around some of the kinks in each API.
