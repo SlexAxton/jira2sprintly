@@ -22,3 +22,13 @@ Comments can't be posted on behalf of other users, so the user that is authed wi
 Pretty much any failure sets off a chain reaction of bad things happening, so I usually just kill the process as soon as something goes wrong. Comments not going through are usually ok to forget about, though... :/
 
 Since sprint.ly needs you to wait for a response before you submit another task, the script can take a bit of time. It took about 30-45min for 700 tickets.
+
+
+NOTES:
+
+* You need to add all Cookies that are needed (in my case 5 cookies were necessary to handle authentication)
+
+* Tough-cookie is necessary (install: npm install tough-cookie)
+
+* If the data does not arrive correctly in Sprint.ly, first check if the Jira URL or the object structure in Jira has changed (function translateJIRAIssue())
+
