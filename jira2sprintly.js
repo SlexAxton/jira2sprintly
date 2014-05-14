@@ -12,6 +12,7 @@ var jira_url = 'https://stuff.yourcompany.com/jira/';
 var jira_session_id = 'GRABTHISFROMTHEJIRACOOKIE';
 
 var sprintly_email = 'you@email.com';
+// Log into Sprint.ly and go to your profile to find the API key information
 var sprintly_api_key = '09824foundontheprofilepage';
 var sprintly_product_id = 9999;
 
@@ -22,6 +23,7 @@ var sprintly_product_id = 9999;
 //
 // You can find all the people in your sprint.ly account with something like
 // curl -u you@email.com:API_KEY https://sprint.ly/api/products/{prod_num}/people.json
+
 var people_map = {
   //"bobama" : 1234
 };
@@ -61,9 +63,16 @@ var request = require('request');
 var _ = require('underscore');
 
 // Handle auth setup via cookie
+// add additional cookies to jar as needed
 var cookie = request.cookie('JSESSIONID=' + jira_session_id);
 var jar = request.jar();
 jar.add(cookie);
+// add additional cookies to jar as needed
+var cookie = request.cookie('00000000000');
+jar.add(cookie);
+
+
+
 
 /**
  * retrieveIssueList
@@ -78,12 +87,13 @@ function retrieveIssueList (start, limit, cb, chunks) {
   // Make a request
   request({
     url : jira_url +
-          'rest/api/2.0.alpha1/search?jql=' +
-          encodeURIComponent('project=' + jira_project) +
-          '&maxResults='+limit+'&startAt='+start,
+            'rest/api/2/search?jql=' +
+            encodeURIComponent('project=' + jira_project) +
+            '&maxResults='+limit+'&startAt='+start,
     jar : jar
   }, function (err, resp, body) {
     var res;
+
 
     // Catch network error
     if (err) {
@@ -171,29 +181,30 @@ function translateJIRAIssue (issue) {
 
   // I hate typing.
   var f = issue.fields;
-
-  // Build a nicer reponse object
+  // Build a nicer reponse object - adjust if necessary!
   var out = {
     key : issue.key,
-    summary : f.summary.value,
-    type : f.issuetype.value.name,
-    reporter : f.reporter.value.name,
-    global_rank : f[jira_global_rank_id].value,
-    rank : f[jira_rank_id].value,
-    priority : f.priority.value.name,
-    description : f.description.value,
-    comments : f.comment ? f.comment.value ? f.comment.value.length ? f.comment.value : [] : [] : [],
-    created : f.created.value,
-    updated : f.updated.value,
-    implementer : f[jira_implementer_custom_id].value ? f[jira_implementer_custom_id].value.key : null,
-    status : f.status.value.name,
-    labels : f.labels.value,
-    size : f[jira_story_points] ? f[jira_story_points].value ? f[jira_story_points].value : null : null,
-    parent : f.parent ? f.parent.value ? f.parent.value.issueKey : null : null,
-    versions : f.fixVersions.value.map(function(v){return v.name;}),
-    assignee : f.assignee.value ? f.assignee.value.name : null
+    summary : f.summary,
+	description : f.description,
+	created : f.created,
+	updated : f.updated,
+	status : f.status.name,
+	statuscategory : f.status.statusCategory.name,
+	parent : f.parent ? f.parent.value ? f.parent.value.issueKey : null : null,
+	fixversion : f.fixVersions &&  f.fixVersions.length > 0 ? f.fixVersions[0].name: '',
+	labels : f.labels.value,
+	type : f.issuetype.name,
+	assignee : f.assignee ? f.assignee.name : '',
+	priority : f.priority ? f.priority.name : '',
+	reporter : f.reporter ? f.reporter.name : '',
+	comments : f.comment && f.comment.total >0 ? f.comment.comments : '' ,
+	reporter : f.reporter ? f.reporter.value.name : ''
+	//custom - use if needed!
+	//    global_rank : f[jira_global_rank_id].value,
+	//    rank : f[jira_rank_id].value,
+	//implementer : f[jira_implementer_custom_id].value ? f[jira_implementer_custom_id].value.key : null,
+	
   };
-
   return out;
 }
 
@@ -387,7 +398,7 @@ function postSprintlyQueue() {
       addIssuesToSprintly(story.children, people_map, stResp.number);
     }
 
-    if (story.comments.length && stResp.number) {
+    if (story.comments && story.comments.length && stResp.number) {
       addCommentsToSprintly(story.comments, people_map, stResp.number);
     }
 
@@ -504,13 +515,11 @@ function addIssuesToSprintly (stories, people, parent_id) {
     var data = {
       description : story.description,
       score : translate_size(story.size),
-      status : person.id ? translate_status(story.status) : 'backlog',
-      tags : 'rank-'+story.rank+
-             ','+story.key+
-             ','+story.labels.join(',')+
-             ','+story.versions.join(',')
+      status : translate_status(story.status),
+      tags : 'priority: '+ story.priority +','+ 'type: ' + story.type + ','+ story.fixversion + ','+story.labels.join(',') + ','+story.versions.join(',')
     };
-
+	
+	
     if (parent_id) {
       data.parent = parent_id;
     }
@@ -519,23 +528,22 @@ function addIssuesToSprintly (stories, people, parent_id) {
     if (person.id) {
       data.assigned_to = person.id;
     }
-
     // If it's listed as a story, and isn't a child item
     if (story.children.length || (!parent_id && story.type.match(/story|epic/i))) {
       data.type = 'story';
       data.who  = 'developer';
       data.what = 'complete this story';
-      data.why  = story.summary;
+      data.why  = story.summary ? story.summary : 'Summary missing';
     }
     else if (story.type.match(/bug/i)) {
       data.type = 'defect';
       data.title = story.summary;
     }
-    else if (story.type.match(/test/i)) {
+    else if (story.type.match(/test/i)) {	
       data.type = 'test';
       data.title = story.summary;
     }
-    else {
+    else {		
       data.type = 'task';
       data.title = story.summary;
     }
